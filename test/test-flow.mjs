@@ -92,10 +92,13 @@ t('能抽到 §2.1b 时间基准表', () => assert.ok(secs['2.1b'] && secs['2.1b
 // ── 7. 定时任务 ──
 console.log('\n7. crontab 读取')
 const jobs = schedule()
-t('读到 3 条定时任务', () => assert.equal(jobs.length, 3, `读到 ${jobs.length} 条：${jobs.map(j=>j.label)}`))
-t('三条分别标为 写作/发布/心跳', () => {
-  const labels = jobs.map(j => j.label).sort().join('')
-  assert.ok(labels.includes('写作') && labels.includes('发布') && labels.includes('心跳'), `实际=${labels}`)
+t('读到 4 条定时任务', () => assert.equal(jobs.length, 4, `读到 ${jobs.length} 条：${jobs.map(j=>j.label)}`))
+t('四条分别标为 写作/发布/心跳/全链路', () => {
+  const labels = jobs.map(j => j.label)
+  for (const n of ['写作','发布','心跳','全链路']) assert.ok(labels.includes(n), `缺 ${n}，实际=${labels}`)
+})
+t('每条 expr 是完整 5 字段时间表达式（cron 要求）', () => {
+  for (const j of jobs) assert.equal(j.expr.split(/\s+/).length, 5, j.label + ' 的 expr 不是 5 字段: ' + j.expr)
 })
 
 // ── 8. 缺目录时不应崩 ──
