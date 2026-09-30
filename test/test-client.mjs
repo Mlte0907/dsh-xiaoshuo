@@ -153,9 +153,11 @@ t('所有 CSS 变量都来自真实令牌族 --dsw-*', () => {
   assert.equal(bad.length, 0, `用了不存在的令牌族：${bad.join(', ')}`)
 })
 t('卡片内文字都有显式颜色（不能靠继承）', () => {
-  // 卡片背景是自定义的，继承色来自外层主题 —— 暗色下会变成浅字落浅卡片
-  const i = src.indexOf('function Chip')
-  const seg = src.slice(i, i + 900)
+  // 卡片背景是自定义的，继承色来自外层主题 —— 暗色下会变成浅字落浅卡片。
+  // 组件名从 Chip 改成 ChapterRow（2026-10-01 重设计），断言跟着走。
+  const i = src.indexOf('function ChapterRow')
+  assert.ok(i > 0, '找不到 ChapterRow 组件')
+  const seg = src.slice(i, i + 1200)
   assert.match(seg, /color:\s*T\.ink/, '章节标题没有显式颜色')
 })
 t('主按钮用 brand / onBrand 反色对', () => {

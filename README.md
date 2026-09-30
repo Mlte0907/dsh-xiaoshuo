@@ -50,7 +50,11 @@
 
 ## 面板
 
-![面板（暗色）](docs/panel-dark.png)
+| 暗色 | 亮色 |
+|---|---|
+| ![暗色](docs/panel-dark.png) | ![亮色](docs/panel-light.png) |
+
+
 
 
 **位置：右侧边栏。首次使用要在右栏点「+」→「连载」把它打开**（dockkit 会按会话记住，
