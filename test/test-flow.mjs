@@ -116,6 +116,12 @@ t('pendingDecisions 的判据来自 decisions.jsonl（不是 pending_decisions.m
   assert.equal(s.pendingDecisions, expect,
     `面板显示 ${s.pendingDecisions}，独立重算 ${expect}`)
 })
+t('裁决器的 R 变体能关闭原 id（记账缺陷的防线）', () => {
+  // 裁决器续裁时写新 id（NEW-002 → NEW-002R），不回写原 id，
+  // 于是原 id 的 defer 永远挂着。这条规则必须留在实现里。
+  const flowSrc = fs.readFileSync(new URL('../lib/flow.js', import.meta.url), 'utf8')
+  assert.match(flowSrc, /replace\(\/R\\d\*\$\//, 'flow.js 丢失了「R 变体关闭基 id」的规则')
+})
 t('读到 3 条定时任务（23:30 已移交 DSH 自动化任务）', () => assert.equal(jobs.length, 3, `读到 ${jobs.length} 条：${jobs.map(j=>j.label)}`))
 t('三条分别标为 写作/发布/心跳', () => {
   const labels = jobs.map(j => j.label)
