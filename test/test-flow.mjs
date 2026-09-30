@@ -92,10 +92,18 @@ t('能抽到 §2.1b 时间基准表', () => assert.ok(secs['2.1b'] && secs['2.1b
 // ── 7. 定时任务 ──
 console.log('\n7. crontab 读取')
 const jobs = schedule()
-t('读到 4 条定时任务', () => assert.equal(jobs.length, 4, `读到 ${jobs.length} 条：${jobs.map(j=>j.label)}`))
-t('四条分别标为 写作/发布/心跳/全链路', () => {
+t('注释掉的 crontab 行不算任务（2026-09-29 修：#30 23 * * * 曾被算成第 5 条）', () => {
+  const bad = jobs.filter(j => j.expr.includes('#') || j.cmd.includes('#30'))
+  assert.equal(bad.length, 0, `混入 ${bad.length} 条注释行：${JSON.stringify(bad)}`)
+})
+// 2026-09-30：23:30 全链路改由 DSH 自动化任务承担，pipeline-cron.sh 已从 crontab 真删
+// （原先用注释停用是错的——注释行会被心跳自愈原样保留，等于没停）。
+// 所以规范现在是 3 条，不是 4 条。测试要跟真实状态一致，不能靠改代码去迎合断言。
+t('读到 3 条定时任务（23:30 已移交 DSH 自动化任务）', () => assert.equal(jobs.length, 3, `读到 ${jobs.length} 条：${jobs.map(j=>j.label)}`))
+t('三条分别标为 写作/发布/心跳', () => {
   const labels = jobs.map(j => j.label)
-  for (const n of ['写作','发布','心跳','全链路']) assert.ok(labels.includes(n), `缺 ${n}，实际=${labels}`)
+  for (const n of ['写作','发布','心跳']) assert.ok(labels.includes(n), `缺 ${n}，实际=${labels}`)
+  assert.ok(!labels.includes('全链路'), 'pipeline-cron 已移交 DSH 自动化任务，不该再出现在 crontab')
 })
 t('每条 expr 是完整 5 字段时间表达式（cron 要求）', () => {
   for (const j of jobs) assert.equal(j.expr.split(/\s+/).length, 5, j.label + ' 的 expr 不是 5 字段: ' + j.expr)

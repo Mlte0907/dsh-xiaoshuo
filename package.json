@@ -10,7 +10,7 @@
     "./flow": "./lib/flow.js",
     "./package.json": "./package.json"
   },
-  "keywords": ["dsh", "dsh-plugin", "dsh-better-sidebar", "novel", "writing", "serialization", "小说", "连载"],
+  "keywords": ["dsh", "dsh-plugin", "dsh-client-ui-sidebar-right", "novel", "writing", "serialization", "小说", "连载"],
   "author": "xiaoxin",
   "license": "MIT",
   "engines": { "node": ">=20" },
@@ -18,6 +18,6 @@
   "scripts": { "test": "node test/test-flow.mjs" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
-    "client": { "platform": "web", "inject": ["dsh-better-sidebar"] }
+    "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-sidebar-right"] }
   }
 }
