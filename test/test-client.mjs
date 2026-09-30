@@ -100,13 +100,14 @@ t('注册到 sidebar.right.pane.tab（右侧边栏，原始设计）', () => {
   assert.match(src, /'sidebar\.right\.pane\.tab\.title'/, '没有注册 tab 标题插槽')
 })
 t('tabs.register 带 kind 与 priority（缺了不报错但不出现在右栏）', () => {
-  // 不用嵌套量词去"抓参数"（跨行的对象字面量很容易抓不到），
-  // 直接在 tabs.register 之后那一段里查字段。
-  const i = src.indexOf('tabs.register(')
+  // ⚠️ 必须先剥掉注释再找：文件头的说明注释里**也**写了 tabs.register({...})，
+  // 直接 indexOf 会命中注释，于是报"缺 kind"——而真代码里是有的。
+  const code = src.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l)).join('\n')
+  const i = code.indexOf('tabs.register(')
   assert.ok(i > 0, '没有调 tabs.register')
-  const m = src.slice(i, i + 400)
-  assert.match(m[1], /kind:\s*'/, 'tabs.register 缺 kind')
-  assert.match(m[1], /priority:\s*'/, 'tabs.register 缺 priority')
+  const m = code.slice(i, i + 400)
+  assert.match(m, /kind:\s*'/, 'tabs.register 缺 kind')
+  assert.match(m, /priority:\s*'/, 'tabs.register 缺 priority')
 })
 t('内容插槽用 key 绑定 tab（keyed 插槽不是 id）', () => {
   assert.match(src, /key:\s*TAB|key:\s*TAB_ID/, '内容插槽没有用 key 绑定')
