@@ -71,6 +71,22 @@ function loadModule() {
 
 console.log('\n== dsh-xiaoshuo 客户端模块测试 ==\n')
 
+console.log('0. package.json —— 缺 dsh.client 时客户端根本不会被加载')
+{
+  const pkg = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'package.json'), 'utf8'))
+  t('声明了 dsh.client.platform = web', () => {
+    // 这一条曾经缺失：服务端 bundle 照常加载、工具与 API 全都注册，
+    // 但宿主不会把 client.js 挂进客户端清单 → load() 从不执行 → 面板永不出现，
+    // 且**没有任何报错**。
+    assert.equal(pkg.dsh?.client?.platform, 'web', '缺 dsh.client.platform —— 客户端模块不会被加载')
+  })
+  t('inject 用完整包名（与 dsh-teams-x 一致）', () => {
+    for (const dep of pkg.dsh?.client?.inject || []) {
+      assert.ok(dep.startsWith('@deepseek-ai/'), `inject 项 ${dep} 缺少 @deepseek-ai/ 前缀`)
+    }
+  })
+}
+
 console.log('1. 模块结构')
 t('契约入口 window.__ModuleLoader__.load({id, factory})', () => {
   assert.match(src, /window\.__ModuleLoader__\.load\(\{/, '缺 load() 入口')
