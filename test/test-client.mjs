@@ -89,41 +89,65 @@ t('React 走 require 而非全局', () => {
 })
 
 console.log('\n2. 挂载路径（今天的真 bug 就在这）')
-t('apply() 在调用时才 ctx.get("slots")（服务懒加载，不能顶层解引用）', () => {
-  assert.ok(!/^const slots = ctx/m.test(src), '仍在模块顶层解引用 ctx')
-  assert.match(src, /ctx\.get\('slots'\)/, '没有在 apply 里 ctx.get')
+t('右栏服务用响应式注入取，不能顶层解引用（懒加载）', () => {
+  // 顶层解引用只会拿到 undefined 且永不再来 —— 面板会静默不出现
+  assert.ok(!/^const tabs = ctx/m.test(src), '仍在模块顶层解引用 ctx')
+  assert.match(src, /ctx\.inject\(\['sidebarRightTabs'\]/, "没有用 ctx.inject(['sidebarRightTabs'], ...)")
+  assert.match(src, /injected\.get\('sidebarRightTabs'\)/, '没有从 injected 里取服务')
 })
-t('不再使用已失效的插槽名 sidebar.right.pane.tab', () => {
-  const inCode = src.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l) && l.includes('sidebar.right.pane.tab'))
-  assert.equal(inCode.length, 0, `代码里还有 ${inCode.length} 处`)
+t('注册到 sidebar.right.pane.tab（右侧边栏，原始设计）', () => {
+  assert.match(src, /ctx\.slots\.inject\('sidebar\.right\.pane\.tab'/, '没有注册到右栏 tab 插槽')
+  assert.match(src, /'sidebar\.right\.pane\.tab\.title'/, '没有注册 tab 标题插槽')
 })
+t('tabs.register 带 kind 与 priority（缺了不报错但不出现在右栏）', () => {
+  // 不用嵌套量词去"抓参数"（跨行的对象字面量很容易抓不到），
+  // 直接在 tabs.register 之后那一段里查字段。
+  const i = src.indexOf('tabs.register(')
+  assert.ok(i > 0, '没有调 tabs.register')
+  const m = src.slice(i, i + 400)
+  assert.match(m[1], /kind:\s*'/, 'tabs.register 缺 kind')
+  assert.match(m[1], /priority:\s*'/, 'tabs.register 缺 priority')
+})
+t('内容插槽用 key 绑定 tab（keyed 插槽不是 id）', () => {
+  assert.match(src, /key:\s*TAB|key:\s*TAB_ID/, '内容插槽没有用 key 绑定')
+})
+
 
 
 console.log('\n3. 运行时行为')
-t('拿不到 slots 时安静退出、不抛错', () => {
+t('ctx.inject 不存在时不抛错（老宿主 / 测试环境）', () => {
   const mod = loadModule()
+  // 没有 inject、也没有 slots：两层保护都要在
   assert.doesNotThrow(() => mod.apply({ get: () => undefined }), 'apply 抛错了')
+  assert.doesNotThrow(() => mod.apply({}), '空 ctx 也应不抛错')
 })
-t('ctx.get 抛异常时也不炸', () => {
+t('服务到位但 slots 缺失时不抛错', () => {
   const mod = loadModule()
-  assert.doesNotThrow(() => mod.apply({ get: () => { throw new Error('no service') } }), 'apply 抛错了')
-})
-t('apply 会 inject conversation.view 并 register 连载标签', () => {
-  const mod = loadModule()
-  let reg = null
-  let injectedSlot = null
   const ctx = {
-    get: (k) => (k === 'slots'
-      ? { inject: (n, fn) => { injectedSlot = n; fn() },
-          register: (d, comp) => { reg = { d, comp } } }
-      : undefined),
+    inject: (deps, fn) => fn({ get: () => ({ register: () => () => {} }) }),
+    // 注意：没有 slots
+  }
+  assert.doesNotThrow(() => mod.apply(ctx), 'apply 抛错了')
+})
+t('apply 会把右栏 tab 类型与内容插槽都注册上', () => {
+  const mod = loadModule()
+  const calls = { inject: [], register: [], tabType: null }
+  const ctx = {
+    inject: (deps, fn) => {
+      calls.inject.push(deps.join(','))
+      if (typeof fn === 'function') fn({ get: () => ({ register: (d) => { calls.tabType = d; return () => {} } }) })
+    },
+    slots: {
+      inject: (n, fn) => { calls.register.push(n); if (typeof fn === 'function') fn() },
+      register: (d) => ({ d }),
+    },
   }
   mod.apply(ctx)
-  assert.equal(injectedSlot, 'conversation.view', `注入了 ${injectedSlot}`)
-  assert.ok(reg, '没有调 register')
-  assert.equal(reg.d.id, 'dsh-xiaoshuo', `id 不对：${reg.d.id}`)
-  assert.equal(reg.d.name, 'conversation.view', `插槽名不对：${reg.d.name}`)
-  assert.equal(typeof reg.comp, 'function', '组件应是函数')
+  assert.ok(calls.inject.includes('sidebarRightTabs'), `没有注入 sidebarRightTabs：${calls.inject}`)
+  assert.ok(calls.tabType, '没有调 tabs.register')
+  assert.equal(calls.tabType.id, 'dsh-xiaoshuo', `tab id 不对：${calls.tabType.id}`)
+  assert.ok(calls.register.includes('sidebar.right.pane.tab'), `没有注册内容插槽：${calls.register}`)
+  assert.ok(calls.register.includes('sidebar.right.pane.tab.title'), '没有注册标题插槽')
 })
 
 console.log('\n4. 面板要用到的数据字段')
