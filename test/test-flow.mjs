@@ -99,6 +99,23 @@ t('注释掉的 crontab 行不算任务（2026-09-29 修：#30 23 * * * 曾被�
 // 2026-09-30：23:30 全链路改由 DSH 自动化任务承担，pipeline-cron.sh 已从 crontab 真删
 // （原先用注释停用是错的——注释行会被心跳自愈原样保留，等于没停）。
 // 所以规范现在是 3 条，不是 4 条。测试要跟真实状态一致，不能靠改代码去迎合断言。
+t('pendingDecisions 的判据来自 decisions.jsonl（不是 pending_decisions.md 的标题数）', () => {
+  const s = snapshot()
+  // 独立重算一遍，与实现比对 —— 光断言"是数字"挡不住回归
+  // （它曾经数 pending_decisions.md 的 `^## ` = 5，而那是 §1~§5 的章节标题）。
+  const root = process.env.DSH_XIAOSHUO_ROOT || '/home/xiaoxin/xiaoshuo'
+  const f = path.join(root, 'data', 'decisions.jsonl')
+  let expect = 0
+  if (fs.existsSync(f)) {
+    const rows = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l) } catch { return null } }).filter(Boolean)
+    const open = new Set(rows.filter(r => r.defer === true).map(r => r.id))
+    for (const r of rows) if (r.defer !== true) open.delete(r.id)
+    expect = open.size
+  }
+  assert.equal(s.pendingDecisions, expect,
+    `面板显示 ${s.pendingDecisions}，独立重算 ${expect}`)
+})
 t('读到 3 条定时任务（23:30 已移交 DSH 自动化任务）', () => assert.equal(jobs.length, 3, `读到 ${jobs.length} 条：${jobs.map(j=>j.label)}`))
 t('三条分别标为 写作/发布/心跳', () => {
   const labels = jobs.map(j => j.label)
