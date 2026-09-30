@@ -111,9 +111,19 @@ t('右栏服务用响应式注入取，不能顶层解引用（懒加载）', ()
   assert.match(src, /ctx\.inject\(\['sidebarRightTabs'\]/, "没有用 ctx.inject(['sidebarRightTabs'], ...)")
   assert.match(src, /injected\.get\('sidebarRightTabs'\)/, '没有从 injected 里取服务')
 })
+t('ctx.slots 不能顶层解引用，必须 ctx.get(\'slots\')', () => {
+  // 顶层解引用的真实报错：
+  //   Error: cannot get property "slots" without inject
+  // 这条和 sidebarRightTabs 同源 —— 我第一次只改了 tabs、漏了 slots，
+  // 于是「tab 类型注册成功、内容插槽注册抛错」且被 ctx.inject 回调外的 try 吞掉。
+  const code = src.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l)).join('\n')
+  assert.ok(!/ctx\.slots\./.test(code), '代码里还有 ctx.slots. 顶层解引用')
+  assert.match(code, /ctx\.get\('slots'\)/, '没有用 ctx.get(\'slots\')')
+})
 t('注册到 sidebar.right.pane.tab（右侧边栏，原始设计）', () => {
-  assert.match(src, /ctx\.slots\.inject\('sidebar\.right\.pane\.tab'/, '没有注册到右栏 tab 插槽')
-  assert.match(src, /'sidebar\.right\.pane\.tab\.title'/, '没有注册 tab 标题插槽')
+  const code = src.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l)).join('\n')
+  assert.match(code, /ctx\.get\('slots'\)\.inject\('sidebar\.right\.pane\.tab'/, '没有注册到右栏 tab 插槽')
+  assert.match(code, /'sidebar\.right\.pane\.tab\.title'/, '没有注册 tab 标题插槽')
 })
 t('tabs.register 带 kind 与 priority（缺了不报错但不出现在右栏）', () => {
   // ⚠️ 必须先剥掉注释再找：文件头的说明注释里**也**写了 tabs.register({...})，
@@ -142,21 +152,23 @@ t('服务到位但 slots 缺失时不抛错', () => {
   const mod = loadModule()
   const ctx = {
     inject: (deps, fn) => fn({ get: () => ({ register: () => () => {} }) }),
-    // 注意：没有 slots
+    get: () => undefined,        // 注意：拿不到 slots
   }
   assert.doesNotThrow(() => mod.apply(ctx), 'apply 抛错了')
 })
 t('apply 会把右栏 tab 类型与内容插槽都注册上', () => {
   const mod = loadModule()
   const calls = { inject: [], register: [], tabType: null }
+  const slotsSvc = {
+    inject: (n, fn) => { calls.register.push(n); if (typeof fn === 'function') fn() },
+    register: (d) => ({ d }),
+  }
   const ctx = {
+    // 关键：slots 走 get()，不是顶层属性
+    get: (k) => (k === 'slots' ? slotsSvc : undefined),
     inject: (deps, fn) => {
       calls.inject.push(deps.join(','))
       if (typeof fn === 'function') fn({ get: () => ({ register: (d) => { calls.tabType = d; return () => {} } }) })
-    },
-    slots: {
-      inject: (n, fn) => { calls.register.push(n); if (typeof fn === 'function') fn() },
-      register: (d) => ({ d }),
     },
   }
   mod.apply(ctx)
