@@ -141,6 +141,29 @@ t('内容插槽用 key 绑定 tab（keyed 插槽不是 id）', () => {
 
 
 
+console.log('\n2.5 设计令牌（踩过的坑：编造令牌名 + 兜底值 = 静默失效）')
+t('所有 CSS 变量都来自真实令牌族 --dsw-*', () => {
+  // 我曾用了 --dsh-ink / --dsh-surface / --dsh-line / --dsh-accent 这一套 ——
+  // DSH 里根本不存在（真实的是 --dsw-alias-*）。因为 var() 带了兜底值，
+  // 亮色下"碰巧能看"，暗色下卡片仍是浅色、章节标题继承浅色文字 → 整列看不见。
+  // 带了兜底值的错误令牌**永远不报错**，所以必须靠断言挡。
+  const code = src.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l)).join('\n')
+  const vars = [...code.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)].map(m => m[1])
+  const bad = [...new Set(vars)].filter(v => !v.startsWith('--dsw-'))
+  assert.equal(bad.length, 0, `用了不存在的令牌族：${bad.join(', ')}`)
+})
+t('卡片内文字都有显式颜色（不能靠继承）', () => {
+  // 卡片背景是自定义的，继承色来自外层主题 —— 暗色下会变成浅字落浅卡片
+  const i = src.indexOf('function Chip')
+  const seg = src.slice(i, i + 900)
+  assert.match(seg, /color:\s*T\.ink/, '章节标题没有显式颜色')
+})
+t('主按钮用 brand / onBrand 反色对', () => {
+  const code = src.split('\n').filter(l => !/^\s*(\*|\/\/)/.test(l)).join('\n')
+  assert.match(code, /background:\s*primary\s*\?\s*T\.brand/, '主按钮底色不是 T.brand')
+  assert.match(code, /color:\s*primary\s*\?\s*T\.onBrand/, '主按钮文字不是 T.onBrand')
+})
+
 console.log('\n3. 运行时行为')
 t('ctx.inject 不存在时不抛错（老宿主 / 测试环境）', () => {
   const mod = loadModule()
